@@ -902,6 +902,18 @@
       "path": "Community/add-flashcards"
     },
     {
+      "name": "claude-code-window-primer",
+      "description": "Optimize Claude Code Pro/Max usage by starting the 5-hour rolling window early morning, giving you more resets during waking hours.",
+      "metadata": {
+        "author": "va.zo.computer",
+        "category": "Community",
+        "display-name": "Claude Code Window Primer",
+        "emoji": "⏰"
+      },
+      "slug": "claude-code-window-primer",
+      "path": "Community/claude-code-window-primer"
+    },
+    {
       "name": "summarize-hacker-news",
       "description": "Picks the most interesting articles from Hacker News, reads them, and emails you a summary",
       "metadata": {
