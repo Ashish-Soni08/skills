@@ -14,6 +14,12 @@ const SCOPES = [
   "https://www.googleapis.com/auth/gmail.readonly",
   "https://www.googleapis.com/auth/gmail.send",
   "https://www.googleapis.com/auth/gmail.modify",
+  "https://www.googleapis.com/auth/drive",
+  "https://www.googleapis.com/auth/drive.file",
+  "https://www.googleapis.com/auth/documents",
+  "https://www.googleapis.com/auth/spreadsheets",
+  "https://www.googleapis.com/auth/contacts",
+  "https://www.googleapis.com/auth/contacts.readonly",
 ].join(" ");
 
 const port = parseInt(process.env.PORT || "8085");
@@ -56,6 +62,7 @@ Bun.serve({
         <!DOCTYPE html>
         <html>
         <head>
+          <meta charset="utf-8">
           <title>Google OAuth Setup</title>
           <style>
             body { font-family: system-ui; max-width: 500px; margin: 80px auto; padding: 20px; text-align: center; }
@@ -66,11 +73,11 @@ Bun.serve({
         </head>
         <body>
           <h1>🔐 Connect Google</h1>
-          <p>Click below to authorize access to your Google Calendar and Gmail.</p>
+          <p>Click below to authorize access to your Google Calendar, Gmail, Drive, Docs, Sheets, and Contacts.</p>
           <p><a class="button" href="${authUrl}">Sign in with Google</a></p>
         </body>
         </html>
-      `, { headers: { "Content-Type": "text/html" } });
+      `, { headers: { "Content-Type": "text/html; charset=utf-8" } });
     }
 
     if (url.pathname === "/callback") {
@@ -105,6 +112,7 @@ Bun.serve({
           <!DOCTYPE html>
           <html>
           <head>
+            <meta charset="utf-8">
             <title>Connected!</title>
             <style>
               body { font-family: system-ui; max-width: 500px; margin: 80px auto; padding: 20px; }
@@ -113,11 +121,11 @@ Bun.serve({
           </head>
           <body>
             <h1 class="success">✅ Connected!</h1>
-            <p>Zo now has access to your Google Calendar and Gmail.</p>
+            <p>Zo now has access to your Google Calendar, Gmail, Drive, Docs, Sheets, and Contacts.</p>
             <p>You can close this tab.</p>
           </body>
           </html>
-        `, { headers: { "Content-Type": "text/html" } });
+        `, { headers: { "Content-Type": "text/html; charset=utf-8" } });
       }
     }
 
