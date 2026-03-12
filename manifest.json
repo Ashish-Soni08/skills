@@ -1005,6 +1005,17 @@
       "path": "Community/morning-briefing"
     },
     {
+      "name": "code-degunker",
+      "description": "Identify and fix AI-generated code anti-patterns: incomplete implementations, TODO placeholders, over-engineering, hallucinated APIs, missing error handling, over-defensive code, security vulnerabilities, performance anti-patterns, code bloat, type workarounds, dead code, magic numbers, inconsistent patterns, and poor architecture. Use when asked to \"clean up\", \"degunk\", \"deslop\", review, audit, or harden code. Also triggers on \"is this code any good\", \"make this production-ready\", \"this feels AI-generated\", \"fix the code smell\", \"remove the slop\", or \"this code is a mess\". Covers 27 anti-patterns across architecture, logic, security, performance, completeness, style, and reliability. Supports full file review and branch diff review modes.\n",
+      "compatibility": "Created for Zo Computer",
+      "metadata": {
+        "author": "skeletorjs",
+        "origin": "Adapted from Claude Code skill by same author"
+      },
+      "slug": "code-degunker",
+      "path": "Community/code-degunker"
+    },
+    {
       "name": "prompt-improver",
       "description": "Improve and optimize prompts for Claude using Anthropic's official best practices and the 5-Element Persona Framework. Use when asked to improve, refine, optimize, or review a prompt. Also triggers on requests to make prompts clearer, more effective, better structured, or to get better/more realistic outputs from Claude. Covers Claude 4.x-specific techniques, persona engineering, constraint-based prompting, and structured outputs.",
       "metadata": {
@@ -1242,6 +1253,16 @@
       },
       "slug": "daily-affirmations",
       "path": "Community/daily-affirmations"
+    },
+    {
+      "name": "simplify",
+      "description": "Simplifies and refines code for clarity, consistency, and maintainability while preserving all functionality. Focuses on recently modified code unless instructed otherwise. Run after writing or modifying code to clean it up.",
+      "compatibility": "Created for Zo Computer",
+      "metadata": {
+        "author": "skeletorjs"
+      },
+      "slug": "simplify",
+      "path": "Community/simplify"
     },
     {
       "name": "zopenclaw",
