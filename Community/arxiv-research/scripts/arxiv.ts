@@ -3,9 +3,8 @@
 import { parseArgs } from "util";
 import { mkdir, readdir, readFile, writeFile, exists } from "node:fs/promises";
 import { join } from "node:path";
-import { homedir } from "node:os";
 
-const STORAGE_PATH = join(homedir(), ".arxiv-mcp-server", "papers");
+const STORAGE_PATH = "/home/workspace/Research/arxiv-papers";
 
 interface ArxivEntry {
   id: string;
@@ -220,7 +219,6 @@ async function readPaperContent(paperId: string, format?: "text" | "markdown", w
 
     if (hasPdftotext) {
       if (withPageMarkers) {
-        // Get text with page markers using -layout
         const result = Bun.spawn(["pdftotext", "-layout", pdfPath, "-"], { stdout: "pipe" });
         text = await new Response(result.stdout).text();
       } else {
@@ -228,21 +226,16 @@ async function readPaperContent(paperId: string, format?: "text" | "markdown", w
         text = await new Response(result.stdout).text();
       }
     } else {
-      // Fallback to PyPDF2 with page-by-page extraction
-      const pythonScript = `
-import sys
-from PyPDF2 import PdfReader
-reader = PdfReader("${pdfPath}")
-text = ""
-for i, page in enumerate(reader.pages, 1):
-    ${withPageMarkers ? 'text += f"\\n--- Page {i} ---\\n"' : 'pass'}
-    page_text = page.extract_text()
-    if page_text:
-        text += page_text + "\\n"
-print(text)
-`;
-      const result = Bun.spawn(["python3", "-c", pythonScript], { stdout: "pipe", stderr: "pipe" });
+      // Fallback to external Python script
+      const scriptDir = import.meta.dirname || import.meta.url.replace("file://", "").replace(/\/[^\/]+$/, "");
+      const pyScript = join(scriptDir, "extract_text.py");
+      
+      const result = Bun.spawn(["python3", pyScript, pdfPath, withPageMarkers ? "true" : "false"], { 
+        stdout: "pipe", 
+        stderr: "pipe" 
+      });
       text = await new Response(result.stdout).text();
+      
       if (!text.trim()) {
         const err = await new Response(result.stderr).text();
         if (err.includes("No module named")) {
@@ -268,65 +261,33 @@ async function convertToMarkdown(paperId: string): Promise<string> {
     throw new Error(`Paper ${cleanId} not found. Download it first.`);
   }
 
-  // Check if already converted
   if (await exists(mdPath)) {
     console.log(`Markdown already exists for ${cleanId}`);
     return mdPath;
   }
 
-  // Try pymupdf4llm (best quality)
-  const pythonScript = `
-import sys
-try:
-    import fitz  # PyMuPDF
-    from pymupdf4llm import to_markdown
-except ImportError:
-    # Fallback: basic PyMuPDF
-    import fitz
-    doc = fitz.open("${pdfPath}")
-    md = ""
-    for page_num in range(len(doc)):
-        page = doc[page_num]
-        md += f"\\n\\n--- Page {page_num + 1} ---\\n\\n"
-        md += page.get_text()
-    doc.close()
-    print(md)
-    sys.exit(0)
-
-try:
-    md = to_markdown("${pdfPath}")
-    print(md)
-except Exception as e:
-    # Fallback without pymupdf4llm
-    doc = fitz.open("${pdfPath}")
-    md = ""
-    for page_num in range(len(doc)):
-        page = doc[page_num]
-        md += f"\\n\\n--- Page {page_num + 1} ---\\n\\n"
-        md += page.get_text()
-    doc.close()
-    print(md)
-`;
-
+  const scriptDir = import.meta.dirname || import.meta.url.replace("file://", "").replace(/\/[^\/]+$/, "");
+  const pyScript = join(scriptDir, "convert_to_markdown.py");
+  
   console.log(`Converting ${cleanId} to Markdown...`);
-  const result = Bun.spawn(["python3", "-c", pythonScript], { stdout: "pipe", stderr: "pipe" });
-  const text = await new Response(result.stdout).text();
+  
+  const result = Bun.spawn(["python3", pyScript, pdfPath, mdPath], { 
+    stdout: "pipe", 
+    stderr: "pipe" 
+  });
+  const output = await new Response(result.stdout).text();
   const stderr = await new Response(result.stderr).text();
 
-  if (!text.trim()) {
-    if (stderr.includes("No module named")) {
-      throw new Error("PDF conversion requires PyMuPDF. Install with: pip3 install PyMuPDF");
-    }
-    throw new Error(`Conversion failed: ${stderr}`);
+  if (!output.trim() && stderr.includes("No module named")) {
+    throw new Error("PDF conversion requires PyMuPDF. Install with: pip3 install PyMuPDF");
   }
 
-  await writeFile(mdPath, text);
   console.log(`Converted to ${mdPath}`);
   return mdPath;
 }
 
-async function readPaper(paperId: string, maxChars = 5000, format?: "text" | "markdown", withPages = false): Promise<void> {
-  const text = await readPaperContent(paperId, format, withPages);
+async function readPaper(paperId: string, maxChars = 5000, format?: "text" | "markdown"): Promise<void> {
+  const text = await readPaperContent(paperId, format);
 
   if (text === null) {
     console.log(`Paper ${paperId} not found. Download it first:`);
@@ -395,22 +356,12 @@ async function mcpListPapers() {
   return { content: [{ type: "text", text: JSON.stringify(papers, null, 2) }] };
 }
 
-async function mcpReadPaper(args: { paper_id: string; format?: "text" | "markdown" }) {
-  const format = args.format || "text";
-  const text = await readPaperContent(args.paper_id, format);
+async function mcpReadPaper(args: { paper_id: string }) {
+  const text = await readPaperContent(args.paper_id);
   if (text === null) {
     return { content: [{ type: "text", text: `Paper ${args.paper_id} not found. Download it first.` }], isError: true };
   }
   return { content: [{ type: "text", text }] };
-}
-
-async function mcpConvertPaper(args: { paper_id: string }) {
-  try {
-    const path = await convertToMarkdown(args.paper_id);
-    return { content: [{ type: "text", text: JSON.stringify({ success: true, paper_id: args.paper_id, markdown_path: path }) }] };
-  } catch (error) {
-    return { content: [{ type: "text", text: `Error: ${error instanceof Error ? error.message : String(error)}` }], isError: true };
-  }
 }
 
 async function main() {
@@ -422,8 +373,6 @@ async function main() {
       from: { type: "string" },
       categories: { type: "string" },
       json: { type: "boolean" },
-      format: { type: "string" },
-      pages: { type: "boolean" },
       help: { type: "boolean", short: "h" }
     }
   });
@@ -435,8 +384,7 @@ async function main() {
     "search_papers": "search",
     "download_paper": "download",
     "list_papers": "list",
-    "read_paper": "read",
-    "convert_paper": "convert"
+    "read_paper": "read"
   };
   const normalizedCommand = commandMap[command] || command;
 
@@ -452,29 +400,28 @@ Commands:
   search_papers <query>       MCP alias for search
   download <paper-id>         Download a paper by arXiv ID
   download_paper <paper-id>   MCP alias for download
-  convert <paper-id>          Convert PDF to Markdown (PyMuPDF)
-  convert_paper <paper-id>    MCP alias for convert
   list                        List all downloaded papers
   list_papers                 MCP alias for list
   read <paper-id>             Read content of a downloaded paper
   read_paper <paper-id>       MCP alias for read
+  convert <paper-id>          Convert PDF to Markdown (best for citations)
   mcp <tool> <args>           Execute MCP tool directly (JSON I/O)
 
 Options:
   --max <n>            Max results (default: 10, max: 50)
   --from <date>        Date filter (YYYY-MM-DD format)
   --categories <cats>  Comma-separated arXiv categories
-  --format <fmt>       Read format: auto (default, markdown if available, else text), text, or markdown
-  --pages              Include page markers when reading
   --json               Output as JSON (for programmatic use)
   -h, --help           Show this help
 
 Examples:
   bun arxiv.ts search "transformer architecture" --max 5
+  bun arxiv.ts search_papers "quantum" --categories cs.AI,quant-ph
   bun arxiv.ts download 2401.12345
+  bun arxiv.ts download_paper 2401.12345
+  bun arxiv.ts list --json
   bun arxiv.ts convert 2401.12345
-  bun arxiv.ts read 2401.12345 --format markdown
-  bun arxiv.ts read 2401.12345 --pages
+  bun arxiv.ts read 2401.12345
   bun arxiv.ts mcp search_papers '{"query": "AI", "max_results": 5}'
 
 Prompt:
@@ -504,9 +451,6 @@ Prompt:
       case "read_paper":
         result = await mcpReadPaper(args);
         break;
-      case "convert_paper":
-        result = await mcpConvertPaper(args);
-        break;
       default:
         console.error(`Unknown MCP tool: ${toolName}`);
         process.exit(1);
@@ -518,7 +462,8 @@ Prompt:
   if (normalizedCommand === "deep-paper-analysis") {
     if (!arg) {
       console.error("Error: Paper ID required for deep analysis");
-      console.exit(1);
+      console.error("  bun arxiv.ts deep-paper-analysis <paper-id>");
+      process.exit(1);
     }
 
     const paperId = arg.replace(/^arxiv:/, "").trim();
@@ -526,9 +471,9 @@ Prompt:
 
     console.log("Step 1: Checking downloaded papers...");
     const papers = await listPapers(true);
-    const exists = papers.some(p => p.id === paperId);
+    const paperExists = papers.some(p => p.id === paperId);
 
-    if (!exists) {
+    if (!paperExists) {
       console.log(`Step 2: Downloading paper ${paperId}...`);
       try {
         await downloadPaper(paperId, true);
@@ -551,8 +496,16 @@ Prompt:
       console.log(`Summary: ${metadata.summary.slice(0, 300)}...\n`);
     }
 
-    console.log("Step 4: Reading paper content...");
-    const content = await readPaperContent(paperId, (values.format as any) || "text");
+    console.log("Step 4: Converting to Markdown (if needed)...");
+    try {
+      await convertToMarkdown(paperId);
+      console.log("Markdown ready.\n");
+    } catch {
+      console.log("PDF text extraction will be used.\n");
+    }
+
+    console.log("Step 5: Reading paper content...");
+    const content = await readPaperContent(paperId);
     if (content === null) {
       console.error("Failed to read paper content.");
       process.exit(1);
@@ -616,19 +569,6 @@ Prompt:
         break;
       }
 
-      case "convert":
-      case "convert_paper": {
-        if (!arg) {
-          console.error("Error: Paper ID required");
-          process.exit(1);
-        }
-        const mdPath = await convertToMarkdown(arg);
-        if (values.json) {
-          console.log(JSON.stringify({ success: true, paper_id: arg, markdown_path: mdPath }));
-        }
-        break;
-      }
-
       case "list":
       case "list_papers": {
         if (values.json) {
@@ -646,18 +586,26 @@ Prompt:
           console.error("Error: Paper ID required");
           process.exit(1);
         }
-        // Auto-detect format if not specified
-        const format = values.format as "text" | "markdown" | undefined;
         if (values.json) {
-          const text = await readPaperContent(arg, format, values.pages);
+          const text = await readPaperContent(arg);
           if (text === null) {
             console.log(JSON.stringify({ error: "Paper not found", paper_id: arg }));
             process.exit(1);
           }
-          console.log(JSON.stringify({ paper_id: arg, format: format || "auto", content: text }));
+          console.log(JSON.stringify({ paper_id: arg, content: text }));
         } else {
-          await readPaper(arg, 5000, format, values.pages);
+          await readPaper(arg);
         }
+        break;
+      }
+
+      case "convert": {
+        if (!arg) {
+          console.error("Error: Paper ID required");
+          console.error("  bun arxiv.ts convert <paper-id>");
+          process.exit(1);
+        }
+        await convertToMarkdown(arg);
         break;
       }
 

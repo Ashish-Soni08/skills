@@ -1,6 +1,6 @@
 ---
 name: arxiv-research
-description: Search, download, and read arXiv papers directly. MCP-compatible tools with optional Markdown conversion for page-aware citations. Provides search_papers, download_paper, convert_paper, list_papers, read_paper, and deep-paper-analysis workflow.
+description: Search, download, and read arXiv papers directly. Provides search_papers, download_paper, list_papers, read_paper, convert (PDF to Markdown), and deep-paper-analysis workflow.
 compatibility: Created for Zo Computer
 metadata:
   author: ashishsoni08.zo.computer
@@ -8,17 +8,16 @@ metadata:
 
 # ArXiv Research Skill
 
-Search and access arXiv papers directly from Zo Computer with MCP-compatible tools.
+Search and access arXiv papers directly from Zo Computer.
 
 ## Features
 
 - **Search** arXiv papers with filters (date, categories)
 - **Download** papers by arXiv ID
 - **Convert** PDFs to Markdown (with page markers for citations)
-- **Read** papers as text or Markdown
-- **List** downloaded papers (with Markdown indicator [MD])
+- **Read** papers (auto-detects Markdown if available, else PDF text)
+- **List** downloaded papers (with [MD] indicator)
 - **Deep analysis** workflow for comprehensive paper review
-- **MCP mode** for direct JSON tool execution
 
 ## Tools
 
@@ -26,7 +25,7 @@ Search and access arXiv papers directly from Zo Computer with MCP-compatible too
 |---------|-------------|
 | `search` / `search_papers` | Search arXiv papers |
 | `download` / `download_paper` | Download paper by ID |
-| `convert` / `convert_paper` | Convert PDF to Markdown |
+| `convert` | Convert PDF to Markdown |
 | `list` / `list_papers` | List downloaded papers |
 | `read` / `read_paper` | Read paper content |
 | `mcp` | Execute MCP tools with JSON I/O |
@@ -38,7 +37,7 @@ Search and access arXiv papers directly from Zo Computer with MCP-compatible too
 
 ```bash
 bun arxiv.ts search "transformer architecture" --max 5
-bun arxiv.ts search_papers "AI safety" --categories cs.AI,cs.CY --from 2024-01-01
+bun arxiv.ts search_papers "quantum" --categories cs.AI,quant-ph
 ```
 
 ### Download a paper
@@ -54,25 +53,18 @@ Converts PDF to Markdown with page markers for exact citations:
 
 ```bash
 bun arxiv.ts convert 2401.12345
-# Creates: ~/.arxiv-mcp-server/papers/2401.12345.md
 ```
 
-**Requires:** `pip3 install PyMuPDF`
+**Requires:** `pip3 install PyMuPDF` (optionally `pip3 install pymupdf4llm` for better formatting)
 
 ### Read a paper
 
 ```bash
-# Read (auto-detects: markdown if converted, else PDF text)
+# Auto-detects: markdown if converted, else PDF text
 bun arxiv.ts read 2401.12345
 
-# Force text extraction from PDF
-bun arxiv.ts read 2401.12345 --format text
-
-# Force markdown (error if not converted)
-bun arxiv.ts read 2401.12345 --format markdown
-
-# Include page markers in output
-bun arxiv.ts read 2401.12345 --pages
+# JSON output for programmatic use
+bun arxiv.ts read 2401.12345 --json
 ```
 
 ### List papers
@@ -80,6 +72,8 @@ bun arxiv.ts read 2401.12345 --pages
 ```bash
 bun arxiv.ts list
 # Shows [MD] indicator for papers with Markdown version
+
+bun arxiv.ts list --json
 ```
 
 ### Deep paper analysis
@@ -88,7 +82,7 @@ bun arxiv.ts list
 bun arxiv.ts deep-paper-analysis 2401.12345
 ```
 
-Automatically downloads, reads, and outputs paper data for analysis.
+Automatically downloads, converts (if possible), reads, and outputs paper data for analysis.
 
 ### MCP Mode
 
@@ -96,13 +90,13 @@ Execute tools directly with JSON I/O:
 
 ```bash
 bun arxiv.ts mcp search_papers '{"query": "AI", "max_results": 5}'
-bun arxiv.ts mcp convert_paper '{"paper_id": "2401.12345"}'
-bun arxiv.ts mcp read_paper '{"paper_id": "2401.12345", "format": "markdown"}'
+bun arxiv.ts mcp download_paper '{"paper_id": "2401.12345"}'
+bun arxiv.ts mcp read_paper '{"paper_id": "2401.12345"}'
 ```
 
 ## Storage
 
-Downloaded papers stored at: `~/.arxiv-mcp-server/papers/`
+Downloaded papers stored at: `/home/workspace/Research/arxiv-papers/`
 
 - `*.pdf` — Original PDF files
 - `*.json` — Metadata
@@ -113,19 +107,13 @@ Downloaded papers stored at: `~/.arxiv-mcp-server/papers/`
 **Required:**
 - Bun (Zo's default runtime)
 
-**Optional (for PDF text extraction):**
+**Optional (for PDF text extraction fallback):**
 - `pdftotext` (poppler-utils) — fastest extraction
-- OR `PyPDF2` — `pip3 install PyPDF2`
+- OR `PyPDF2` — `pip3 install PyPDF2` (used via `scripts/extract_text.py`)
 
 **Optional (for Markdown conversion):**
-- `PyMuPDF` — `pip3 install PyMuPDF`
-- OR `pymupdf4llm` — `pip3 install pymupdf4llm` (better formatting)
-
-## MCP Compatibility
-
-This skill replicates the [arxiv-mcp-server](https://github.com/blazickjp/arxiv-mcp-server) but runs natively in Zo without Python/MCP protocol overhead.
-
-Same storage path, same tool names, same functionality — plus Markdown conversion for page-aware citations.
+- `PyMuPDF` — `pip3 install PyMuPDF` (used via `scripts/convert_to_markdown.py`)
+- `pymupdf4llm` — `pip3 install pymupdf4llm` (better formatting, optional)
 
 ## arXiv Categories
 
